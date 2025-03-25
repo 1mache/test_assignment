@@ -110,13 +110,17 @@ private:
 //================================================================================
 
 #ifdef DEBUG
-void gotoxy(uint32_t x, uint32_t y)
+inline void gotoxy(uint32_t x, uint32_t y)
 {
     std::cout.flush();
-    COORD coord; // Create a COORD structure 
-    coord.X = x; // Set the X coordinate 
-    coord.Y = y; // Set the Y coordinate 
+    COORD coord = {x, y}; // Create a COORD structure 
     SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), coord); // Move the cursor
+}
+
+inline void drawChar(uint32_t x, uint32_t y, char c)
+{
+    gotoxy(x, y);
+    std::cout << c;
 }
 #endif // DEBUG
 
@@ -133,9 +137,8 @@ bool openBox(uint32_t y, uint32_t x)
     {
         for (int col = 0; col < x; col++)
         {
-            gotoxy(col, row);
             char printed = boxDataCopy[row][col] ? '1' : '0';
-            std::cout << printed;
+            drawChar(col, row, printed);
         }
     }
     std::cout << std::endl;
