@@ -2,6 +2,7 @@
 #include <vector>
 #include <random>
 #include <time.h>
+#include <windows.h>
 
 /*
 You are given a locked container represented as a two-dimensional grid of boolean values (true = locked, false = unlocked).
@@ -107,12 +108,38 @@ private:
 //              all values in the box 'false'. The function should return false if
 //              the box is successfully unlocked, or true if any cell remains locked.
 //================================================================================
+
+#ifdef DEBUG
+void gotoxy(uint32_t x, uint32_t y)
+{
+    std::cout.flush();
+    COORD coord; // Create a COORD structure 
+    coord.X = x; // Set the X coordinate 
+    coord.Y = y; // Set the Y coordinate 
+    SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), coord); // Move the cursor
+}
+#endif // DEBUG
+
 bool openBox(uint32_t y, uint32_t x)
 {
     SecureBox box(y, x);
+    
+    using BoxData = decltype(box.getState());
+    BoxData boxDataCopy = box.getState();
 
-    // PLEASE, PROVIDE YOUR SOLUTION HERE
-    // ...
+#ifdef DEBUG
+    ShowCursor(false);
+    for (int row = 0; row < y; row++)
+    {
+        for (int col = 0; col < x; col++)
+        {
+            gotoxy(col, row);
+            char printed = boxDataCopy[row][col] ? '1' : '0';
+            std::cout << printed;
+        }
+    }
+    std::cout << std::endl;
+#endif 
 
     return box.isLocked();
 }
@@ -122,6 +149,7 @@ int main(int argc, char* argv[])
 {
     uint32_t y = std::atol(argv[1]);
     uint32_t x = std::atol(argv[2]);
+    
     bool state = openBox(y, x);
 
     if (state)

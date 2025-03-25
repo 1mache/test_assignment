@@ -1,8 +1,8 @@
-workspace "PPMRayTracer"
+workspace "test_assingnment"
 	configurations { "Debug", "Release" }
 	platforms { "Win32","Win64" }  
 
-project "RayTracer"
+project "test_assignment"
 	kind "ConsoleApp"
 	language "C++"
 	cppdialect "C++17"
