@@ -2,7 +2,13 @@
 #include <vector>
 #include <random>
 #include <time.h>
+
+#ifdef DEBUG
 #include <windows.h>
+#include <conio.h>
+#endif // DEBUG
+
+
 
 /*
 You are given a locked container represented as a two-dimensional grid of boolean values (true = locked, false = unlocked).
@@ -122,6 +128,12 @@ inline void drawChar(uint32_t x, uint32_t y, char c)
     gotoxy(x, y);
     std::cout << c;
 }
+
+inline void waitForInput()
+{
+    while (true)
+        if (_kbhit()) break;
+}
 #endif // DEBUG
 
 bool openBox(uint32_t y, uint32_t x)
@@ -142,6 +154,7 @@ bool openBox(uint32_t y, uint32_t x)
         }
     }
     std::cout << std::endl;
+    waitForInput();
 #endif 
 
     return box.isLocked();
