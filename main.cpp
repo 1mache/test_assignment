@@ -6,8 +6,30 @@
 #ifdef DEBUG
 #include <windows.h>
 #include <conio.h>
+constexpr int SLEEP_AMNT = 10;
 #endif // DEBUG
 
+#ifdef DEBUG
+inline void gotoxy(uint32_t x, uint32_t y)
+{
+    std::cout.flush();
+    COORD coord = { x, y }; // Create a COORD structure 
+    SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), coord); // Move the cursor
+}
+
+inline void drawBool(uint32_t x, uint32_t y, bool b)
+{
+    gotoxy(x, y);
+    char printed = b ? '1' : '0';
+    std::cout << printed;
+}
+
+inline void waitForInput()
+{
+    while (true)
+        if (_kbhit()) break;
+}
+#endif // DEBUG
 
 
 /*
@@ -60,10 +82,37 @@ public:
     void toggle(uint32_t y, uint32_t x)
     {
         box[y][x] = !box[y][x];
+#ifdef DEBUG
+        if(shuffled)
+        {
+            drawBool(x, y, box[y][x]);
+            Sleep(SLEEP_AMNT);
+        }
+#endif // DEBUG
+
         for (uint32_t i = 0; i < xSize; i++)
+        { 
             box[y][i] = !box[y][i];
+#ifdef DEBUG
+            if(shuffled)
+            {
+                drawBool(i, y, box[y][i]);
+                Sleep(SLEEP_AMNT);
+            }
+#endif // DEBUG
+        }
+
         for (uint32_t i = 0; i < ySize; i++)
+        {
             box[i][x] = !box[i][x];
+#ifdef DEBUG
+            if(shuffled)
+            {
+                drawBool(x, i, box[i][x]);
+                Sleep(SLEEP_AMNT);
+            }
+#endif // DEBUG
+        }
     }
 
     //================================================================================
@@ -93,6 +142,9 @@ public:
 private:
     std::mt19937_64 rng;
     uint32_t ySize, xSize;
+#ifdef DEBUG
+    bool shuffled = false;
+#endif // DEBUG
 
     //================================================================================
     // Method: shuffle
@@ -103,6 +155,10 @@ private:
     {
         for (uint32_t t = rng() % 1000; t > 0; t--)
             toggle(rng() % ySize, rng() % xSize);
+
+#ifdef DEBUG
+        shuffled = true;
+#endif // DEBUG
     }
 };
 
@@ -115,47 +171,80 @@ private:
 //              the box is successfully unlocked, or true if any cell remains locked.
 //================================================================================
 
-#ifdef DEBUG
-inline void gotoxy(uint32_t x, uint32_t y)
+void openLine(SecureBox& box ,uint32_t lineId ,const std::vector<bool>& lineData)
 {
-    std::cout.flush();
-    COORD coord = {x, y}; // Create a COORD structure 
-    SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), coord); // Move the cursor
-}
+    uint32_t i = 0;
+    // kind of a sliding window
+    bool left  = false, 
+         mid   = lineData[i], 
+         right = lineData.size() > 1 ? lineData[i+1] : false;
 
-inline void drawChar(uint32_t x, uint32_t y, char c)
-{
-    gotoxy(x, y);
-    std::cout << c;
-}
+    for( ; i < lineData.size(); i++)
+    {   
+        //       l m r
+        // [..., 0,1,1,...]
+        if (!left && mid && right
+                  && i > 0) // and if its not l[m,r,...]
+            box.toggle(lineId, i - 1);
+        
+        //       l m r
+        // [..., 1,1,0,...]
+        else if (left && mid && !right)
+            box.toggle(lineId, i);
 
-inline void waitForInput()
-{
-    while (true)
-        if (_kbhit()) break;
+        //       l m r
+        // [..., 0,1,0,...]
+        else if(!left && mid && !right)
+        {
+            if (i > 0)
+                box.toggle(lineId, i - 1);
+
+            box.toggle(lineId, i);
+        }
+        
+        // update window
+        left = lineData[i];
+        mid = lineData[i+1];
+        if (i >= lineData.size() - 2)
+            right = false;
+        else
+            right = lineData[i+2];
+    }
 }
-#endif // DEBUG
 
 bool openBox(uint32_t y, uint32_t x)
 {
     SecureBox box(y, x);
+
     
     using BoxData = decltype(box.getState());
     BoxData boxDataCopy = box.getState();
 
 #ifdef DEBUG
-    ShowCursor(false);
+
     for (int row = 0; row < y; row++)
     {
         for (int col = 0; col < x; col++)
         {
             char printed = boxDataCopy[row][col] ? '1' : '0';
-            drawChar(col, row, printed);
+            std::cout << printed;
         }
+        std::cout << std::endl;
     }
-    std::cout << std::endl;
     waitForInput();
 #endif 
+
+    // iterate over the lines, bottom to top
+    // since box.toggle() also toggles everything above the cell
+    for(int64_t row = y-1; row >= 0; row--)
+    {
+        auto line = boxDataCopy[row];
+        openLine(box, row, line);
+
+#ifdef DEBUG
+        waitForInput();
+#endif // DEBUG
+    }
 
     return box.isLocked();
 }
