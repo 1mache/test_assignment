@@ -1,12 +1,13 @@
 #include <iostream>
 #include <vector>
+#include <stack>
 #include <random>
 #include <time.h>
 
 #ifdef DEBUG
 #include <windows.h>
 #include <conio.h>
-constexpr int SLEEP_AMNT = 10;
+constexpr int SLEEP_AMNT = 0;
 #endif // DEBUG
 
 #ifdef DEBUG
@@ -171,80 +172,125 @@ private:
 //              the box is successfully unlocked, or true if any cell remains locked.
 //================================================================================
 
-void openLine(SecureBox& box ,uint32_t lineId ,const std::vector<bool>& lineData)
-{
-    uint32_t i = 0;
-    // kind of a sliding window
-    bool left  = false, 
-         mid   = lineData[i], 
-         right = lineData.size() > 1 ? lineData[i+1] : false;
-
-    for( ; i < lineData.size(); i++)
-    {   
-        //       l m r
-        // [..., 0,1,1,...]
-        if (!left && mid && right
-                  && i > 0) // and if its not l[m,r,...]
-            box.toggle(lineId, i - 1);
-        
-        //       l m r
-        // [..., 1,1,0,...]
-        else if (left && mid && !right)
-            box.toggle(lineId, i);
-
-        //       l m r
-        // [..., 0,1,0,...]
-        else if(!left && mid && !right)
-        {
-            if (i > 0)
-                box.toggle(lineId, i - 1);
-
-            box.toggle(lineId, i);
-        }
-        
-        // update window
-        left = lineData[i];
-        mid = lineData[i+1];
-        if (i >= lineData.size() - 2)
-            right = false;
-        else
-            right = lineData[i+2];
-    }
-}
-
-bool openBox(uint32_t y, uint32_t x)
+bool openBoxManual(uint32_t y, uint32_t x)
 {
     SecureBox box(y, x);
 
-    
-    using BoxData = decltype(box.getState());
-    BoxData boxDataCopy = box.getState();
+    auto boxDataCopy = box.getState();
 
 #ifdef DEBUG
 
-    for (int row = 0; row < y; row++)
+    for (uint32_t row = 0; row < y; row++)
     {
-        for (int col = 0; col < x; col++)
+        for (uint32_t col = 0; col < x; col++)
         {
             char printed = boxDataCopy[row][col] ? '1' : '0';
             std::cout << printed;
         }
         std::cout << std::endl;
     }
-    waitForInput();
-#endif 
+#endif
 
-    // iterate over the lines, bottom to top
-    // since box.toggle() also toggles everything above the cell
-    for(int64_t row = y-1; row >= 0; row--)
+    uint32_t tX = 0, tY = 0;
+    bool status = false;
+    std::cin >> status >> tY >> tX;
+
+    while (status)
     {
-        auto line = boxDataCopy[row];
-        openLine(box, row, line);
+        box.toggle(tY, tX);
+        std::string clear(50, ' ');
+        gotoxy(0, y);
+        std::cout << clear;
+        gotoxy(0, y);
+
+        std::cin >> status >> tY >> tX;
+    }
+
+    return box.isLocked();
+}
+
+struct Cell
+{
+    uint32_t y, x;
+    bool operator==(Cell other)
+    {
+        return (x == other.x) && (y == other.y);
+    }
+    bool operator!=(Cell other)
+    {
+        return !(*this == other);
+    }
+};
+
+// Same as toggle but on a copy vector outside the box
+// to keep track of changes done to the box
+void toggleDataCopy(std::vector<std::vector<bool>>& boxData, Cell cell)
+{
+    auto x = cell.x, y = cell.y;
+
+    boxData[y][x] = !boxData[y][x];
+
+    for (uint32_t i = 0; i < boxData[0].size(); i++)
+    {
+        boxData[y][i] = boxData[y][i];
+    }
+
+    for (uint32_t i = 0; i < boxData.size(); i++)
+    {
+        boxData[i][x] = boxData[i][x];
+    }
+}
+
+bool openBoxRec(SecureBox& box, std::stack<Cell>& toggles, std::vector<std::vector<bool>>& boxData)
+{
+    if (!box.isLocked())
+        return false;
+
+    for (uint32_t row = 0; row < boxData.size(); row++)
+    {
+        for (uint32_t col = 0; col < boxData[0].size(); col++)
+        {
+            Cell cell{row, col};
+            // no point in changing the same cell twice in a row
+            if (toggles.empty() || toggles.top() != cell)
+            {
+                box.toggle(row, col);          // internal box toggle
+                toggleDataCopy(boxData, cell); // tracking toggle
+                toggles.push({row, col});
+                // if we couldn`t open the box recursively
+                if (openBoxRec(box, toggles,boxData))
+                {
+                    toggles.pop();              // pop last toggle
+                    box.toggle(cell.y, cell.x); // revert it (its this iteration`s cell)
+                    toggleDataCopy(boxData, cell);
+                    return true;
+                }
+                else return false;
+            }
+        }
+    }
+}
+
+bool openBox(uint32_t y, uint32_t x)
+{
+    SecureBox box(y, x);
+    auto boxDataCopy = box.getState();
 
 #ifdef DEBUG
-        waitForInput();
-#endif // DEBUG
+
+    for (uint32_t row = 0; row < y; row++)
+    {
+        for (uint32_t col = 0; col < x; col++)
+        {
+            char printed = boxDataCopy[row][col] ? '1' : '0';
+            std::cout << printed;
+        }
+        std::cout << std::endl;
     }
+#endif
+
+    std::stack<Cell> toggleStack;
+    openBoxRec(box, toggleStack, boxDataCopy);
 
     return box.isLocked();
 }
@@ -252,8 +298,12 @@ bool openBox(uint32_t y, uint32_t x)
 
 int main(int argc, char* argv[])
 {
-    uint32_t y = std::atol(argv[1]);
-    uint32_t x = std::atol(argv[2]);
+    //DEBUG:
+    uint32_t y = 3;
+    uint32_t x = 3;
+
+    //uint32_t y = std::atol(argv[1]);
+    //uint32_t x = std::atol(argv[2]);
     
     bool state = openBox(y, x);
 
