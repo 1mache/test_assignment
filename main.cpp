@@ -232,43 +232,48 @@ void toggleDataCopy(std::vector<std::vector<bool>>& boxData, Cell cell)
 
     for (uint32_t i = 0; i < boxData[0].size(); i++)
     {
-        boxData[y][i] = boxData[y][i];
+        boxData[y][i] = !boxData[y][i];
     }
 
     for (uint32_t i = 0; i < boxData.size(); i++)
     {
-        boxData[i][x] = boxData[i][x];
+        boxData[i][x] = !boxData[i][x];
     }
 }
 
-bool openBoxRec(SecureBox& box, std::stack<Cell>& toggles, std::vector<std::vector<bool>>& boxData)
+bool openBoxRec(SecureBox& box, std::stack<Cell>& toggles, 
+                std::vector<std::vector<bool>>& boxData,
+                uint64_t depth)
 {
     if (!box.isLocked())
         return false;
+    if (depth > boxData.size() * boxData[0].size())
+        return true;
 
     for (uint32_t row = 0; row < boxData.size(); row++)
     {
         for (uint32_t col = 0; col < boxData[0].size(); col++)
         {
-            Cell cell{row, col};
+            Cell cell{ row, col };
             // no point in changing the same cell twice in a row
             if (toggles.empty() || toggles.top() != cell)
             {
                 box.toggle(row, col);          // internal box toggle
                 toggleDataCopy(boxData, cell); // tracking toggle
-                toggles.push({row, col});
+                toggles.push({ row, col });
                 // if we couldn`t open the box recursively
-                if (openBoxRec(box, toggles,boxData))
+                if (openBoxRec(box, toggles, boxData, depth + 1))
                 {
-                    toggles.pop();              // pop last toggle
-                    box.toggle(cell.y, cell.x); // revert it (its this iteration`s cell)
-                    toggleDataCopy(boxData, cell);
-                    return true;
+                    toggles.pop();                 // pop last toggle
+                    box.toggle(cell.y, cell.x);    // revert it (its this iteration`s cell)
+                    toggleDataCopy(boxData, cell); // revert the effect on the copy
                 }
                 else return false;
             }
         }
     }
+
+    return true;
 }
 
 bool openBox(uint32_t y, uint32_t x)
@@ -290,7 +295,7 @@ bool openBox(uint32_t y, uint32_t x)
 #endif
 
     std::stack<Cell> toggleStack;
-    openBoxRec(box, toggleStack, boxDataCopy);
+    openBoxRec(box, toggleStack, boxDataCopy,0);
 
     return box.isLocked();
 }
@@ -299,8 +304,8 @@ bool openBox(uint32_t y, uint32_t x)
 int main(int argc, char* argv[])
 {
     //DEBUG:
-    uint32_t y = 3;
-    uint32_t x = 3;
+    uint32_t y = 10;
+    uint32_t x = 10;
 
     //uint32_t y = std::atol(argv[1]);
     //uint32_t x = std::atol(argv[2]);
