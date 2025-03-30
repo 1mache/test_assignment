@@ -1,12 +1,14 @@
 #include <iostream>
 #include <vector>
 #include <stack>
+#include <unordered_map>
 #include <random>
 #include <time.h>
 
 #ifdef DEBUG
 #include <windows.h>
 #include <conio.h>
+#include <fstream>
 constexpr int SLEEP_AMNT = 0;
 #endif // DEBUG
 
@@ -212,6 +214,12 @@ bool openBoxManual(uint32_t y, uint32_t x)
 struct Cell
 {
     uint32_t y, x;
+    
+    // Conversion to hashable type
+    operator uint64_t() const {
+        return (static_cast<uint64_t>(x) << 32) | y;
+    }
+
     bool operator==(Cell other)
     {
         return (x == other.x) && (y == other.y);
@@ -221,6 +229,18 @@ struct Cell
         return !(*this == other);
     }
 };
+
+void logToggles(std::stack<Cell> toggles)
+{
+    std::ofstream logFile("toggles.log", 'w');
+    while(!toggles.empty())
+    {
+        auto toggle = toggles.top();
+        logFile << toggle.y << toggle.x << std::endl;
+        toggles.pop();
+    }
+    logFile.close();
+}
 
 // Same as toggle but on a copy vector outside the box
 // to keep track of changes done to the box
@@ -241,13 +261,19 @@ void toggleDataCopy(std::vector<std::vector<bool>>& boxData, Cell cell)
     }
 }
 
-bool openBoxRec(SecureBox& box, std::stack<Cell>& toggles, 
+bool openBoxRec(SecureBox& box, std::stack<Cell>& toggles,
+                std::unordered_map<uint64_t,uint8_t>& toggleEncounters,  
                 std::vector<std::vector<bool>>& boxData,
                 uint64_t depth)
 {
     if (!box.isLocked())
+    {
+        logToggles(toggles);
         return false;
-    if (depth > boxData.size() * boxData[0].size())
+    }
+
+    // if we went over each cell twice
+    if (depth > boxData.size() * boxData[0].size() * 2)
         return true;
 
     for (uint32_t row = 0; row < boxData.size(); row++)
@@ -256,16 +282,24 @@ bool openBoxRec(SecureBox& box, std::stack<Cell>& toggles,
         {
             Cell cell{ row, col };
             // no point in changing the same cell twice in a row
-            if (toggles.empty() || toggles.top() != cell)
+            if (toggleEncounters.empty() || toggleEncounters.find(cell) == toggleEncounters.end()
+                || toggleEncounters[cell] == 0)
             {
                 box.toggle(row, col);          // internal box toggle
                 toggleDataCopy(boxData, cell); // tracking toggle
                 toggles.push({ row, col });
+
+                if (toggleEncounters.find(cell) == toggleEncounters.end())
+                    toggleEncounters[cell] = 1;
+                else
+                    toggleEncounters[cell]++;
+
                 // if we couldn`t open the box recursively
-                if (openBoxRec(box, toggles, boxData, depth + 1))
+                if (openBoxRec(box, toggles, toggleEncounters, boxData ,depth + 1))
                 {
                     toggles.pop();                 // pop last toggle
                     box.toggle(cell.y, cell.x);    // revert it (its this iteration`s cell)
+                    toggleEncounters[cell]--;      // reset the encounter
                     toggleDataCopy(boxData, cell); // revert the effect on the copy
                 }
                 else return false;
@@ -294,8 +328,10 @@ bool openBox(uint32_t y, uint32_t x)
     }
 #endif
 
+    waitForInput();
     std::stack<Cell> toggleStack;
-    openBoxRec(box, toggleStack, boxDataCopy,0);
+    std::unordered_map <uint64_t, uint8_t> toggleMap;
+    openBoxRec(box, toggleStack, toggleMap,boxDataCopy,0);
 
     return box.isLocked();
 }
@@ -304,8 +340,8 @@ bool openBox(uint32_t y, uint32_t x)
 int main(int argc, char* argv[])
 {
     //DEBUG:
-    uint32_t y = 10;
-    uint32_t x = 10;
+    uint32_t y = 4;
+    uint32_t x = 4;
 
     //uint32_t y = std::atol(argv[1]);
     //uint32_t x = std::atol(argv[2]);
