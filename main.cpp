@@ -1,6 +1,7 @@
 #include <iostream>
 #include <vector>
 #include <stack>
+#include <queue>
 #include <unordered_map>
 #include <random>
 #include <time.h>
@@ -11,6 +12,8 @@
 #include <fstream>
 constexpr int SLEEP_AMNT = 0;
 #endif // DEBUG
+
+#include "utils.cpp"
 
 #ifdef DEBUG
 inline void gotoxy(uint32_t x, uint32_t y)
@@ -31,6 +34,19 @@ inline void waitForInput()
 {
     while (true)
         if (_kbhit()) break;
+}
+
+void printData(const std::vector<std::vector<bool>>& data)
+{
+    for (uint32_t row = 0; row < data.size(); row++)
+    {
+        for (uint32_t col = 0; col < data[0].size(); col++)
+        {
+            char printed = data[row][col] ? '1' : '0';
+            std::cout << printed;
+        }
+        std::cout << std::endl;
+    }
 }
 #endif // DEBUG
 
@@ -173,7 +189,7 @@ private:
 //              all values in the box 'false'. The function should return false if
 //              the box is successfully unlocked, or true if any cell remains locked.
 //================================================================================
-
+#ifdef DEBUG 
 bool openBoxManual(uint32_t y, uint32_t x)
 {
     SecureBox box(y, x);
@@ -181,16 +197,7 @@ bool openBoxManual(uint32_t y, uint32_t x)
     auto boxDataCopy = box.getState();
 
 #ifdef DEBUG
-
-    for (uint32_t row = 0; row < y; row++)
-    {
-        for (uint32_t col = 0; col < x; col++)
-        {
-            char printed = boxDataCopy[row][col] ? '1' : '0';
-            std::cout << printed;
-        }
-        std::cout << std::endl;
-    }
+    printData(boxDataCopy);
 #endif
 
     uint32_t tX = 0, tY = 0;
@@ -210,105 +217,7 @@ bool openBoxManual(uint32_t y, uint32_t x)
 
     return box.isLocked();
 }
-
-struct Cell
-{
-    uint32_t y, x;
-    
-    // Conversion to hashable type
-    operator uint64_t() const {
-        return (static_cast<uint64_t>(x) << 32) | y;
-    }
-
-    bool operator==(Cell other)
-    {
-        return (x == other.x) && (y == other.y);
-    }
-    bool operator!=(Cell other)
-    {
-        return !(*this == other);
-    }
-};
-
-void logToggles(std::stack<Cell> toggles)
-{
-    std::ofstream logFile("toggles.log", 'w');
-    while(!toggles.empty())
-    {
-        auto toggle = toggles.top();
-        logFile << toggle.y << toggle.x << std::endl;
-        toggles.pop();
-    }
-    logFile.close();
-}
-
-// Same as toggle but on a copy vector outside the box
-// to keep track of changes done to the box
-void toggleDataCopy(std::vector<std::vector<bool>>& boxData, Cell cell)
-{
-    auto x = cell.x, y = cell.y;
-
-    boxData[y][x] = !boxData[y][x];
-
-    for (uint32_t i = 0; i < boxData[0].size(); i++)
-    {
-        boxData[y][i] = !boxData[y][i];
-    }
-
-    for (uint32_t i = 0; i < boxData.size(); i++)
-    {
-        boxData[i][x] = !boxData[i][x];
-    }
-}
-
-bool openBoxRec(SecureBox& box, std::stack<Cell>& toggles,
-                std::unordered_map<uint64_t,uint8_t>& toggleEncounters,  
-                std::vector<std::vector<bool>>& boxData,
-                uint64_t depth)
-{
-    if (!box.isLocked())
-    {
-        logToggles(toggles);
-        return false;
-    }
-
-    // if we went over each cell twice
-    if (depth > boxData.size() * boxData[0].size())
-        return true;
-
-    for (uint32_t row = 0; row < boxData.size(); row++)
-    {
-        for (uint32_t col = 0; col < boxData[0].size(); col++)
-        {
-            Cell cell{ row, col };
-            if (   toggleEncounters.empty() // first iteration
-                || toggleEncounters.find(cell) == toggleEncounters.end() // OR the cell is not in map
-                || toggleEncounters[cell] == 0) // OR the cell encounter count is 0
-            {
-                box.toggle(row, col);          // internal box toggle
-                toggleDataCopy(boxData, cell); // copy toggle
-                toggles.push({ row, col });
-
-                if (toggleEncounters.find(cell) == toggleEncounters.end())
-                    toggleEncounters[cell] = 1; // if the cell isnt in the map make it 0+1 = 1
-                else
-                    toggleEncounters[cell]++;   // if it is just add to encounters
-
-                // if we couldn`t open the box recursively
-                if (openBoxRec(box, toggles, toggleEncounters, boxData ,depth + 1))
-                {
-                    toggles.pop();                 // pop last toggle
-                    box.toggle(cell.y, cell.x);    // revert it (its this iteration`s cell)
-                    toggleEncounters[cell]--;      // reset the encounter
-                    toggleDataCopy(boxData, cell); // revert the effect on the copy
-                }
-                else return false;
-            }
-        }
-    }
-
-    return true;
-}
+#endif //  DEBUG 
 
 bool openBox(uint32_t y, uint32_t x)
 {
@@ -316,22 +225,40 @@ bool openBox(uint32_t y, uint32_t x)
     auto boxDataCopy = box.getState();
 
 #ifdef DEBUG
-
-    for (uint32_t row = 0; row < y; row++)
-    {
-        for (uint32_t col = 0; col < x; col++)
-        {
-            char printed = boxDataCopy[row][col] ? '1' : '0';
-            std::cout << printed;
-        }
-        std::cout << std::endl;
-    }
-#endif
-
+    printData(boxDataCopy);
     waitForInput();
-    std::stack<Cell> toggleStack;
-    std::unordered_map <uint64_t, uint8_t> toggleMap;
-    openBoxRec(box, toggleStack, toggleMap,boxDataCopy,0);
+#endif    
+
+    bool solved = box.isLocked();
+    std::stack<Cell> toggleStack;                  // stack of cells we toggled
+    std::queue<Cell> unmarked;                 // queue of unmarked states that we will check
+    std::unordered_map <Cell, bool> marked; // map of board data stored as a uint64
+
+    // We will traverse graph G breadth first where box states are nodes and toggles are edges
+    // between them. There is a node between state A and B if you get B from A.toggle(y,x) for some x,y
+
+    while(!solved && !unmarked.empty())
+    {
+        uint64_t next = unmarked.front();
+        unmarked.pop();
+
+        for (uint32_t row = 0; row < y; row++)
+        {
+            for (uint32_t col = 0; col < x; col++)
+            {
+                Cell cell{ row,col };
+                toggleDataCopy(boxDataCopy, cell);
+                toggleStack.push(cell);
+
+                if(!isCopyLocked(boxDataCopy))
+                    solved = true;
+                else
+                {
+                    if(marked.find(cell) == marked.end())
+                }
+            }
+        }
+    }
 
     return box.isLocked();
 }
