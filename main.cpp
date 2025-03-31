@@ -273,7 +273,7 @@ bool openBoxRec(SecureBox& box, std::stack<Cell>& toggles,
     }
 
     // if we went over each cell twice
-    if (depth > boxData.size() * boxData[0].size() * 2)
+    if (depth > boxData.size() * boxData[0].size())
         return true;
 
     for (uint32_t row = 0; row < boxData.size(); row++)
@@ -281,18 +281,18 @@ bool openBoxRec(SecureBox& box, std::stack<Cell>& toggles,
         for (uint32_t col = 0; col < boxData[0].size(); col++)
         {
             Cell cell{ row, col };
-            // no point in changing the same cell twice in a row
-            if (toggleEncounters.empty() || toggleEncounters.find(cell) == toggleEncounters.end()
-                || toggleEncounters[cell] == 0)
+            if (   toggleEncounters.empty() // first iteration
+                || toggleEncounters.find(cell) == toggleEncounters.end() // OR the cell is not in map
+                || toggleEncounters[cell] == 0) // OR the cell encounter count is 0
             {
                 box.toggle(row, col);          // internal box toggle
-                toggleDataCopy(boxData, cell); // tracking toggle
+                toggleDataCopy(boxData, cell); // copy toggle
                 toggles.push({ row, col });
 
                 if (toggleEncounters.find(cell) == toggleEncounters.end())
-                    toggleEncounters[cell] = 1;
+                    toggleEncounters[cell] = 1; // if the cell isnt in the map make it 0+1 = 1
                 else
-                    toggleEncounters[cell]++;
+                    toggleEncounters[cell]++;   // if it is just add to encounters
 
                 // if we couldn`t open the box recursively
                 if (openBoxRec(box, toggles, toggleEncounters, boxData ,depth + 1))
@@ -340,7 +340,7 @@ bool openBox(uint32_t y, uint32_t x)
 int main(int argc, char* argv[])
 {
     //DEBUG:
-    uint32_t y = 4;
+    uint32_t y = 3;
     uint32_t x = 4;
 
     //uint32_t y = std::atol(argv[1]);
