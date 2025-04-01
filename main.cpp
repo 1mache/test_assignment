@@ -318,7 +318,8 @@ std::vector<bool> gaussianElimination(std::vector<std::vector<bool>>& A, std::ve
 //             The question 'for which x Ax = b' essentially asks what toggles do we need
 //             to perform on the zero matrix so that we get b (initial state).
 //             This is derived from the definition of A and x and the matrix multiplication definition.
-//             The orded 
+//             The order of toggles doesnt matter so its the same as asking which toggles 
+//             turn b into the 0 matrix.
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 bool openBox(uint32_t y, uint32_t x)
 {
