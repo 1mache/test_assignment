@@ -111,11 +111,6 @@ struct Cell
 {
     uint32_t y, x;
 
-    // Conversion to hashable type
-    operator uint64_t() const {
-        return (static_cast<uint64_t>(x) << 32) | y;
-    }
-
     bool operator==(Cell other)
     {
         return (x == other.x) && (y == other.y);
@@ -331,8 +326,9 @@ bool openBox(uint32_t y, uint32_t x)
     auto solution = gaussianElimination(toggleEffectsMatrix, calcInitState(boxDataCopy));
 
     if (solution.empty())
-        return true; // opening is not possible
+        return true; // opening is not possible (probably there is a bug) 
 
+    //Applying the toggles in the solution to box
     for (uint32_t row = 0; row < y; row++)
     {
         for (uint32_t col = 0; col < x; col++)
