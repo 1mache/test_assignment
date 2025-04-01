@@ -1,53 +1,8 @@
 #include <iostream>
 #include <vector>
-#include <stack>
-#include <queue>
 #include <optional>
-#include <unordered_map>
 #include <random>
 #include <time.h>
-
-#ifdef DEBUG
-#include <windows.h>
-#include <conio.h>
-#include <fstream>
-constexpr int SLEEP_AMNT = 0;
-#endif // DEBUG
-
-#ifdef DEBUG
-inline void gotoxy(uint32_t x, uint32_t y)
-{
-    std::cout.flush();
-    COORD coord = { x, y }; // Create a COORD structure 
-    SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), coord); // Move the cursor
-}
-
-inline void drawBool(uint32_t x, uint32_t y, bool b)
-{
-    gotoxy(x, y);
-    char printed = b ? '1' : '0';
-    std::cout << printed;
-}
-
-inline void waitForInput()
-{
-    while (true)
-        if (_kbhit()) break;
-}
-
-void printData(const std::vector<std::vector<bool>>& data)
-{
-    for (uint32_t row = 0; row < data.size(); row++)
-    {
-        for (uint32_t col = 0; col < data[0].size(); col++)
-        {
-            char printed = data[row][col] ? '1' : '0';
-            std::cout << printed;
-        }
-        std::cout << std::endl;
-    }
-}
-#endif // DEBUG
 
 
 /*
@@ -100,36 +55,15 @@ public:
     void toggle(uint32_t y, uint32_t x)
     {
         box[y][x] = !box[y][x];
-#ifdef DEBUG
-        if(shuffled)
-        {
-            drawBool(x, y, box[y][x]);
-            Sleep(SLEEP_AMNT);
-        }
-#endif // DEBUG
 
         for (uint32_t i = 0; i < xSize; i++)
         { 
             box[y][i] = !box[y][i];
-#ifdef DEBUG
-            if(shuffled)
-            {
-                drawBool(i, y, box[y][i]);
-                Sleep(SLEEP_AMNT);
-            }
-#endif // DEBUG
         }
 
         for (uint32_t i = 0; i < ySize; i++)
         {
             box[i][x] = !box[i][x];
-#ifdef DEBUG
-            if(shuffled)
-            {
-                drawBool(x, i, box[i][x]);
-                Sleep(SLEEP_AMNT);
-            }
-#endif // DEBUG
         }
     }
 
@@ -160,9 +94,6 @@ public:
 private:
     std::mt19937_64 rng;
     uint32_t ySize, xSize;
-#ifdef DEBUG
-    bool shuffled = false;
-#endif // DEBUG
 
     //================================================================================
     // Method: shuffle
@@ -173,50 +104,8 @@ private:
     {
         for (uint32_t t = rng() % 1000; t > 0; t--)
             toggle(rng() % ySize, rng() % xSize);
-
-#ifdef DEBUG
-        shuffled = true;
-#endif // DEBUG
     }
 };
-
-//================================================================================
-// Function: openBox
-// Description: Your task is to implement this function to unlock the SecureBox.
-//              Use only the public methods of SecureBox (toggle, getState, isLocked).
-//              You must determine the correct sequence of toggle operations to make
-//              all values in the box 'false'. The function should return false if
-//              the box is successfully unlocked, or true if any cell remains locked.
-//================================================================================
-#ifdef DEBUG 
-bool openBoxManual(uint32_t y, uint32_t x)
-{
-    SecureBox box(y, x);
-
-    auto boxDataCopy = box.getState();
-
-#ifdef DEBUG
-    printData(boxDataCopy);
-#endif
-
-    uint32_t tX = 0, tY = 0;
-    bool status = false;
-    std::cin >> status >> tY >> tX;
-
-    while (status)
-    {
-        box.toggle(tY, tX);
-        std::string clear(50, ' ');
-        gotoxy(0, y);
-        std::cout << clear;
-        gotoxy(0, y);
-
-        std::cin >> status >> tY >> tX;
-    }
-
-    return box.isLocked();
-}
-#endif //  DEBUG 
 
 struct Cell
 {
@@ -236,18 +125,6 @@ struct Cell
         return !(*this == other);
     }
 };
-
-void logToggles(std::stack<Cell> toggles)
-{
-    std::ofstream logFile("toggles.log", 'w');
-    while (!toggles.empty())
-    {
-        auto toggle = toggles.top();
-        logFile << toggle.y << toggle.x << std::endl;
-        toggles.pop();
-    }
-    logFile.close();
-}
 
 // translates a Cell object to an index for a flattened out matrix
 uint64_t cellToId(Cell cell, uint32_t xSize)
@@ -417,15 +294,18 @@ std::vector<bool> gaussianElimination(std::vector<std::vector<bool>>& A, std::ve
     return b;
 }
 
+//================================================================================
+// Function: openBox
+// Description: Your task is to implement this function to unlock the SecureBox.
+//              Use only the public methods of SecureBox (toggle, getState, isLocked).
+//              You must determine the correct sequence of toggle operations to make
+//              all values in the box 'false'. The function should return false if
+//              the box is successfully unlocked, or true if any cell remains locked.
+//================================================================================
 bool openBox(uint32_t y, uint32_t x)
 {
     SecureBox box(y, x);
     auto boxDataCopy = box.getState();
-
-#ifdef DEBUG
-    printData(boxDataCopy);
-    waitForInput();
-#endif    
     
     auto toggleEffectsMatrix = precalculateToggleEffects(y,x);
 
@@ -450,12 +330,8 @@ bool openBox(uint32_t y, uint32_t x)
 
 int main(int argc, char* argv[])
 {
-    //DEBUG:
-    uint32_t y = 18;
-    uint32_t x = 16;
-
-    //uint32_t y = std::atol(argv[1]);
-    //uint32_t x = std::atol(argv[2]);
+    uint32_t y = std::atol(argv[1]);
+    uint32_t x = std::atol(argv[2]);
     
     bool state = openBox(y, x);
 
