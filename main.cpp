@@ -311,7 +311,7 @@ std::vector<bool> gaussianElimination(std::vector<std::vector<bool>>& A, std::ve
 //              in the same vector format.
 // 
 //             Why the problem of solving Ax = b is the same problem ?
-//             The question 'for which x Ax = b' essentially asks what toggles do we need
+//             The question 'for which x Ax = b' essentially asks what toggles (x) do we need
 //             to perform on the zero matrix so that we get b (initial state).
 //             This is derived from the definition of A and x and the matrix multiplication definition.
 //             The order of toggles doesnt matter so its the same as asking which toggles 
