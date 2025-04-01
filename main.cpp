@@ -1,9 +1,6 @@
 #include <iostream>
 #include <vector>
-#include <stack>
-#include <queue>
 #include <optional>
-#include <unordered_map>
 #include <random>
 #include <time.h>
 
@@ -236,18 +233,6 @@ struct Cell
         return !(*this == other);
     }
 };
-
-void logToggles(std::stack<Cell> toggles)
-{
-    std::ofstream logFile("toggles.log", 'w');
-    while (!toggles.empty())
-    {
-        auto toggle = toggles.top();
-        logFile << toggle.y << toggle.x << std::endl;
-        toggles.pop();
-    }
-    logFile.close();
-}
 
 // translates a Cell object to an index for a flattened out matrix
 uint64_t cellToId(Cell cell, uint32_t xSize)
