@@ -13,8 +13,6 @@
 constexpr int SLEEP_AMNT = 0;
 #endif // DEBUG
 
-#include "utils.cpp"
-
 #ifdef DEBUG
 inline void gotoxy(uint32_t x, uint32_t y)
 {
@@ -219,6 +217,181 @@ bool openBoxManual(uint32_t y, uint32_t x)
 }
 #endif //  DEBUG 
 
+struct Cell
+{
+    uint32_t y, x;
+
+    // Conversion to hashable type
+    operator uint64_t() const {
+        return (static_cast<uint64_t>(x) << 32) | y;
+    }
+
+    bool operator==(Cell other)
+    {
+        return (x == other.x) && (y == other.y);
+    }
+    bool operator!=(Cell other)
+    {
+        return !(*this == other);
+    }
+};
+
+void logToggles(std::stack<Cell> toggles)
+{
+    std::ofstream logFile("toggles.log", 'w');
+    while (!toggles.empty())
+    {
+        auto toggle = toggles.top();
+        logFile << toggle.y << toggle.x << std::endl;
+        toggles.pop();
+    }
+    logFile.close();
+}
+
+// translates a Cell object to an index for a flattened out matrix
+uint64_t cellToId(Cell cell, uint32_t xSize)
+{
+    return cell.y * xSize + cell.x;
+}
+
+// Does the same that SecureBox::toggle does but with a vector of effects
+std::vector<bool> calcToggleEffect(Cell toggled, uint32_t ySize, uint32_t xSize)
+{
+    uint64_t fSize = ySize * xSize;
+    auto effectVector = std::vector<bool>(fSize);
+
+    for (uint32_t i = 0; i < xSize; i++)
+    {
+        Cell c{ toggled.y, i };
+        effectVector[cellToId(c, xSize)] = true;
+    }
+
+    for (uint32_t i = 0; i < ySize; i++)
+    {
+        Cell c{ i, toggled.x };
+        effectVector[cellToId(c, xSize)] = true;
+    }
+
+    return effectVector;
+}
+
+// Calculates a matrix where line i is a flattened out matrix that represents the effects of a
+// toggle on cell x, y (such that cellToId(y,x) = i) on the zero matrix
+/* ==========Example:=======================================================================
+*  A = 2x2 matrix, the effects of toggle of 0,0 are |1 1| (1 on cells that are affected)
+*                                                   |1 0|
+*  Flattened out vector of this will be (1, 1, 1, 0)
+============================================================================================ */
+std::vector<std::vector<bool>> precalculateToggleEffects(uint32_t ySize, uint32_t xSize)
+{
+    // flattened size
+    uint64_t fSize = ySize * xSize;
+    auto toggleMatrix = std::vector<std::vector<bool>>(fSize, std::vector<bool>(fSize));
+
+    for (uint32_t row = 0; row < ySize; row++)
+    {
+        for (uint32_t col = 0; col < xSize; col++)
+        {
+            Cell cell{ row,col };
+
+            toggleMatrix[cellToId(cell, xSize)] = calcToggleEffect(cell, ySize, xSize);
+        }
+    }
+
+    return toggleMatrix;
+}
+
+// Returns a vector that represents the flattened matrix that is the boxData at its init. state
+std::vector<bool> calcInitState(std::vector<std::vector<bool>> boxData)
+{
+
+    uint64_t fSize = boxData.size() * boxData[0].size();
+    auto res = std::vector<bool>(fSize);
+
+    uint32_t ySize = boxData.size(), xSize = boxData[0].size();
+
+    for (uint32_t row = 0; row < ySize; row++)
+    {
+        for (uint32_t col = 0; col < xSize; col++)
+            res[cellToId({ row, col }, xSize)] = boxData[row][col];
+    }
+
+    return res;
+}
+
+// Adds second vector to first using XOR which is + for bits
+// assumes they're same size of course
+void addBoolVectors(std::vector<bool>& to, const std::vector<bool>& added)
+{
+    for (uint32_t i = 0; i < added.size(); i++)
+        to[i] = to[i] ^ added[i];
+}
+
+bool isZeroVector(const std::vector<bool>& v)
+{
+    for (auto b : v)
+        if (b) return false;
+
+    return true;
+}
+
+// Solves Ax = b. (A is square) if the solution exists returns x, if not, returns empty vector
+// Note: we assume A can be multiplied by b so linear algebra laws are true and this function makes sense 
+std::vector<bool> gaussianElimination(std::vector<std::vector<bool>>& A, std::vector<bool>&& b)
+{
+    uint32_t pivot = 0; // pivot in which column are we looking for
+
+    for (; pivot < A[0].size() - 1; pivot++)
+    {
+        // Note: real gaussian elimination would search in a for loop but we will assume 
+        // A is correct and from how we defined it there should be a 1 at fromRow[pivot]
+        // we would also swap rows if needed. We dont need it here.
+        std::vector<bool>& pivotRow = A[pivot];
+
+        // if we didnt find a pivot (this shouldnt happen in our case)
+        if (!pivotRow[pivot]) // this is ppossible!!!!! TODO
+            break; // something went wrong, this is only for a debug breakpoint
+
+        // zero out every 1 below pivot
+        for (uint32_t row = pivot + 1; row < A.size(); row++)
+        {
+            if (A[row][pivot])
+            {
+                addBoolVectors(A[row], pivotRow);
+                b[row] = b[row] ^ b[pivot]; // do the same row operation to b
+            }
+        }
+    }
+
+    // go over the pivots again in the reverse order
+    for (; pivot > 1; pivot--)
+    {
+        std::vector<bool>& pivotRow = A[pivot];
+
+        // zero out every 1 above pivot
+        for (int64_t row = pivot - 1; row >= 0; row--)
+        {
+            if (A[row][pivot])
+            {
+                addBoolVectors(A[row], pivotRow);
+                b[row] = b[row] ^ b[pivot];      // do the same row operation to b
+            }
+        }
+    }
+
+
+    //// Check for a contradiction: line i is all zeroes but the elem. i of b is 1 
+    //for (uint32_t i = 0; i < A.size(); i++) 
+    //{
+    //    if (isZeroVector(A[i]) && b[i])
+    //        return std::vector<bool>(0); // no solution exists 
+    //}
+
+    return b;
+}
+
+
+
 bool openBox(uint32_t y, uint32_t x)
 {
     SecureBox box(y, x);
@@ -228,37 +401,20 @@ bool openBox(uint32_t y, uint32_t x)
     printData(boxDataCopy);
     waitForInput();
 #endif    
+    
+    auto toggleEffectsMatrix = precalculateToggleEffects(y,x);
 
-    bool solved = box.isLocked();
-    std::stack<Cell> toggleStack;                  // stack of cells we toggled
-    std::queue<Cell> unmarked;                 // queue of unmarked states that we will check
-    std::unordered_map <Cell, bool> marked; // map of board data stored as a uint64
+    auto solution = gaussianElimination(toggleEffectsMatrix, calcInitState(boxDataCopy));
 
-    // We will traverse graph G breadth first where box states are nodes and toggles are edges
-    // between them. There is a node between state A and B if you get B from A.toggle(y,x) for some x,y
-
-    while(!solved && !unmarked.empty())
+    for (uint32_t row = 0; row < y; row++)
     {
-        uint64_t next = unmarked.front();
-        unmarked.pop();
-
-        for (uint32_t row = 0; row < y; row++)
+        for (uint32_t col = 0; col < x; col++)
         {
-            for (uint32_t col = 0; col < x; col++)
-            {
-                Cell cell{ row,col };
-                toggleDataCopy(boxDataCopy, cell);
-                toggleStack.push(cell);
-
-                if(!isCopyLocked(boxDataCopy))
-                    solved = true;
-                else
-                {
-                    if(marked.find(cell) == marked.end())
-                }
-            }
+            if(solution[cellToId({ row, col }, x)])
+                box.toggle(row, col); // toggle cell if its in the solution
         }
     }
+
 
     return box.isLocked();
 }
@@ -267,8 +423,8 @@ bool openBox(uint32_t y, uint32_t x)
 int main(int argc, char* argv[])
 {
     //DEBUG:
-    uint32_t y = 3;
-    uint32_t x = 4;
+    uint32_t y = 2;
+    uint32_t x = 2;
 
     //uint32_t y = std::atol(argv[1]);
     //uint32_t x = std::atol(argv[2]);
