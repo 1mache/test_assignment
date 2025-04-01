@@ -302,6 +302,24 @@ std::vector<bool> gaussianElimination(std::vector<std::vector<bool>>& A, std::ve
 //              all values in the box 'false'. The function should return false if
 //              the box is successfully unlocked, or true if any cell remains locked.
 //================================================================================
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// Solution:  Using linear algebra's Gauss elimination for Ax=b.
+//            I'll explain what A and b are but first what our vectors here represent?
+//            A vector represents the matrix we`re working with in a flattened out state,
+//            so a x by y input can be represented by a single vector of size x*y.
+//            - b is the initial state of input. see calcInitState() function
+//            - A is more interesting, each line of A represents an effect of a toggle, 
+//              of a single cell on a 0 matrix (see precalculateToggleEffects for specifics)
+//            - x represents the toggles required to solve the problem,
+//              in the same vector format.
+// 
+//             Why the problem of solving Ax = b is the same problem ?
+//             The question 'for which x Ax = b' essentially asks what toggles do we need
+//             to perform on the zero matrix so that we get b (initial state).
+//             This is derived from the definition of A and x and the matrix multiplication definition.
+//             The orded 
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 bool openBox(uint32_t y, uint32_t x)
 {
     SecureBox box(y, x);
