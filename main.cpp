@@ -2,6 +2,7 @@
 #include <vector>
 #include <stack>
 #include <queue>
+#include <optional>
 #include <unordered_map>
 #include <random>
 #include <time.h>
@@ -335,36 +336,62 @@ bool isZeroVector(const std::vector<bool>& v)
     return true;
 }
 
+// Finds a row with a pivot at given position, searches starting at given row and downwards
+// returns its index (std::optional)
+std::optional<uint32_t> findPivotRow(const std::vector<std::vector<bool>>& A,
+                                              uint32_t forColumn, uint32_t fromRow)
+{
+    for (auto i = fromRow; i < A.size(); i++)
+    {
+        auto& row = A[i];
+        if (row[forColumn]) // true at given column => we found it
+            return i;
+    }
+    // in our case shold never get here
+    return std::nullopt; 
+}
+
 // Solves Ax = b. (A is square) if the solution exists returns x, if not, returns empty vector
 // Note: we assume A can be multiplied by b so linear algebra laws are true and this function makes sense 
 std::vector<bool> gaussianElimination(std::vector<std::vector<bool>>& A, std::vector<bool>&& b)
 {
     uint32_t pivot = 0; // pivot in which column are we looking for
+    // Note: since we're talking about square matrix A, the pivot also represents the id of the current line
 
     for (; pivot < A[0].size() - 1; pivot++)
     {
-        // Note: real gaussian elimination would search in a for loop but we will assume 
-        // A is correct and from how we defined it there should be a 1 at fromRow[pivot]
-        // we would also swap rows if needed. We dont need it here.
-        std::vector<bool>& pivotRow = A[pivot];
+        // Note: we assume there will be a pivot for each line, in our case this should be 
+        // true given the definition of our matrix. 
+        auto pivotRowId = findPivotRow(A, pivot, pivot);
 
         // if we didnt find a pivot (this shouldnt happen in our case)
-        if (!pivotRow[pivot]) // this is ppossible!!!!! TODO
-            break; // something went wrong, this is only for a debug breakpoint
+        if (!pivotRowId.has_value()) 
+            break; // something went wrong, this is a debug breakpoint
+
+        auto& pivotRow = A[pivotRowId.value()];
+        // if the pivot wasnt on the current row, swap the rows
+        if (pivotRowId != pivot)
+        {
+            std::swap(A[pivot], pivotRow);     // in A
+            bool tmp = b[pivotRowId.value()];  // in b
+            b[pivotRowId.value()] = b[pivot];  // (std::swap didnt work as intended here)
+            b[pivot] = tmp;                    
+        }
 
         // zero out every 1 below pivot
         for (uint32_t row = pivot + 1; row < A.size(); row++)
         {
+            // if there is a 1 add rows which will zero it out
             if (A[row][pivot])
             {
-                addBoolVectors(A[row], pivotRow);
-                b[row] = b[row] ^ b[pivot]; // do the same row operation to b
+                addBoolVectors(A[row], A[pivot]); // in A
+                b[row] = b[row] ^ b[pivot];       // in b
             }
         }
     }
 
     // go over the pivots again in the reverse order
-    for (; pivot > 1; pivot--)
+    for (; pivot >= 1; pivot--)
     {
         std::vector<bool>& pivotRow = A[pivot];
 
@@ -374,23 +401,21 @@ std::vector<bool> gaussianElimination(std::vector<std::vector<bool>>& A, std::ve
             if (A[row][pivot])
             {
                 addBoolVectors(A[row], pivotRow);
-                b[row] = b[row] ^ b[pivot];      // do the same row operation to b
+                b[row] = b[row] ^ b[pivot];
             }
         }
     }
 
 
-    //// Check for a contradiction: line i is all zeroes but the elem. i of b is 1 
-    //for (uint32_t i = 0; i < A.size(); i++) 
-    //{
-    //    if (isZeroVector(A[i]) && b[i])
-    //        return std::vector<bool>(0); // no solution exists 
-    //}
+    // Check for a contradiction: line i is all zeroes but the elem. i of b is 1 
+    for (uint32_t i = 0; i < A.size(); i++) 
+    {
+        if (isZeroVector(A[i]) && b[i])
+            return std::vector<bool>(0); // no solution exists 
+    }
 
     return b;
 }
-
-
 
 bool openBox(uint32_t y, uint32_t x)
 {
@@ -406,6 +431,9 @@ bool openBox(uint32_t y, uint32_t x)
 
     auto solution = gaussianElimination(toggleEffectsMatrix, calcInitState(boxDataCopy));
 
+    if (solution.empty())
+        return true; // opening is not possible
+
     for (uint32_t row = 0; row < y; row++)
     {
         for (uint32_t col = 0; col < x; col++)
@@ -414,8 +442,8 @@ bool openBox(uint32_t y, uint32_t x)
                 box.toggle(row, col); // toggle cell if its in the solution
         }
     }
-
-
+    
+    std::cout << std::endl;
     return box.isLocked();
 }
 
@@ -423,8 +451,8 @@ bool openBox(uint32_t y, uint32_t x)
 int main(int argc, char* argv[])
 {
     //DEBUG:
-    uint32_t y = 2;
-    uint32_t x = 2;
+    uint32_t y = 18;
+    uint32_t x = 16;
 
     //uint32_t y = std::atol(argv[1]);
     //uint32_t x = std::atol(argv[2]);
