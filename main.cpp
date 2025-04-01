@@ -121,13 +121,13 @@ struct Cell
     }
 };
 
-// translates a Cell object to an index for a flattened out matrix
+// Translates a Cell object to an index for a flattened out matrix
 uint64_t cellToId(Cell cell, uint32_t xSize)
 {
     return cell.y * xSize + cell.x;
 }
 
-// Does the same that SecureBox::toggle does but with a vector of effects
+// Does the same that SecureBox::toggle does but on a flattened out representation of the data 
 std::vector<bool> calcToggleEffect(Cell toggled, uint32_t ySize, uint32_t xSize)
 {
     uint64_t fSize = ySize * xSize;
@@ -174,14 +174,13 @@ std::vector<std::vector<bool>> precalculateToggleEffects(uint32_t ySize, uint32_
     return toggleMatrix;
 }
 
-// Returns a vector that represents the flattened matrix that is the boxData at its init. state
+// Returns a vector that represents the flattened representation of 
+// the matrix that is the boxData at its init. state
 std::vector<bool> calcInitState(std::vector<std::vector<bool>> boxData)
 {
-
-    uint64_t fSize = boxData.size() * boxData[0].size();
-    auto res = std::vector<bool>(fSize);
-
     uint32_t ySize = boxData.size(), xSize = boxData[0].size();
+    uint64_t fSize = ySize * xSize;
+    auto res = std::vector<bool>(fSize);
 
     for (uint32_t row = 0; row < ySize; row++)
     {
@@ -192,7 +191,7 @@ std::vector<bool> calcInitState(std::vector<std::vector<bool>> boxData)
     return res;
 }
 
-// Adds second vector to first using XOR which is + for bits
+// Adds second vector to first using XOR which is + (and -) for 0 and 1
 // assumes they're same size of course
 void addBoolVectors(std::vector<bool>& to, const std::vector<bool>& added)
 {
@@ -200,6 +199,7 @@ void addBoolVectors(std::vector<bool>& to, const std::vector<bool>& added)
         to[i] = to[i] ^ added[i];
 }
 
+// Checks if a vector is all zeroes
 bool isZeroVector(const std::vector<bool>& v)
 {
     for (auto b : v)
@@ -219,7 +219,7 @@ std::optional<uint32_t> findPivotRow(const std::vector<std::vector<bool>>& A,
         if (row[forColumn]) // true at given column => we found it
             return i;
     }
-    // in our case shold never get here
+    // in our case we shold never get here
     return std::nullopt; 
 }
 
@@ -284,6 +284,7 @@ std::vector<bool> gaussianElimination(std::vector<std::vector<bool>>& A, std::ve
     {
         if (isZeroVector(A[i]) && b[i])
             return std::vector<bool>(0); // no solution exists 
+        // this is another debug point, something is wrong if this happens
     }
 
     return b;
@@ -300,12 +301,12 @@ std::vector<bool> gaussianElimination(std::vector<std::vector<bool>>& A, std::ve
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // Solution:  Using linear algebra's Gauss elimination for Ax=b.
-//            I'll explain what A and b are but first what our vectors here represent?
-//            A vector represents the matrix we`re working with in a flattened out state,
-//            so a x by y input can be represented by a single vector of size x*y.
+//            I'll explain what A and b are but first what do our vectors here represent?
+//            A vector represents the sstate of the matrix we`re working with in a flattened out state,
+//            so a x by y input can be represented by a single vector of size x*y. (see cellToId)
 //            - b is the initial state of input. see calcInitState() function
 //            - A is more interesting, each line of A represents an effect of a toggle, 
-//              of a single cell on a 0 matrix (see precalculateToggleEffects for specifics)
+//              of a single cell ,on the 0 matrix (see precalculateToggleEffects for specifics)
 //            - x represents the toggles required to solve the problem,
 //              in the same vector format.
 // 
