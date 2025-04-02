@@ -1,4 +1,4 @@
-# test_assingment
+# test_assignment
 
 All the code is in main.cpp divided into functions, no classes were made since it wasnt asked in the assignment
 
