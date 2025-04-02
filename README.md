@@ -18,7 +18,6 @@ All the code is in main.cpp divided into functions, no classes were made since i
                This is derived from the definition of A and x and the matrix multiplication definition.
                The order of toggles doesnt matter so its the same as asking which toggles 
                turn b into the 0 matrix.
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 ## Building
 
